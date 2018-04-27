@@ -87,6 +87,7 @@ library(tidyr)
 library(shiny)
 library(DT)
 library(caret)
+library(plotly)
 Pitches_Wrangled<-Pitches%>%
   select(pfx_x, pfx_z, effective_speed,release_speed ,release_spin_rate, pitch_type, p_throws,player_name, description, stand, woba_value, estimated_woba_using_speedangle, launch_speed, launch_angle)%>%
   mutate(pfx_x=as.numeric(pfx_x), pfx_z=as.numeric(pfx_z), effective_speed=as.numeric(effective_speed),release_speed=as.numeric(release_speed),release_spin_rate=as.numeric(release_spin_rate), woba_value=as.numeric(woba_value), estimated_woba_using_speedangle=as.numeric(estimated_woba_using_speedangle), launch_speed=as.numeric(launch_speed), launch_angle=as.numeric(launch_angle))%>%
@@ -157,7 +158,9 @@ ui<-shinyUI(navbarPage("PitchFX APP",
                                     tabsetPanel(type="tabs",
                                                 tabPanel("One", DT::dataTableOutput("pitchTable")),
                                                 tabPanel("Two",DT::dataTableOutput("swingTable")),
-                                                tabPanel("Three", DT::dataTableOutput("models"))
+                                                tabPanel("Three", DT::dataTableOutput("models")),
+                                                tabPanel("Graphs", plotlyOutput("plot1")),
+                                                tabPanel("dt", dataTableOutput("pitchTable1"))
                                                 )
                                   )
                                 ))
@@ -228,23 +231,35 @@ server<-shinyServer(function(input,output){
     
     
     
-    output$models<-renderDataTable({
-      input$go
-      cv_opts<-trainControl(method="cv", number=10)
-      mod_svm_rad<-train(estimated_woba_using_speedangle~pfx_x+pfx_z+effective_speed+release_speed+release_spin_rate, data=swing_data(), method="svmRadial", preProc=c("center","scale"), tuneLength=10, trControl=cv_opts )
-      acc_svm<-max(mod_svm_rad$results$Accuracy)
-      
-      DT::datatable(data=pitch_data(), rownames=FALSE)
-    }, server=TRUE)
-      
-    })
+    
     
     ############
     
     
     
     ####################################CHARLIE YOUR SERVER CODE HERE#############################################
+    pitch_data_for_scatter<-reactive({
+      pitch_data() %>%
+        filter(description != "ball") %>%
+        filter(description != "swinging_strike") %>%
+        filter(description != "called_strike") %>%
+        filter(description != "foul_tip") %>%
+        filter(description != "foul_bunt") %>%
+        filter(description != "foul") %>%
+        filter(description != "hit_by_pitch") %>%
+        filter(description != "swinging_strike_blocked") %>%
+       filter(description != "blocked_ball")
+      }) 
     
+    output$pitchTable1<-DT::renderDataTable({
+      DT::datatable(data=pitch_data_for_scatter(), rownames=FALSE)
+    }, server=TRUE)
+    
+    output$plot1 <- renderPlotly({
+      req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+      ggplot(data = pitch_data_for_scatter(), 
+           mapping = aes_string(x = "launch_angle", y = "launch_speed")) + geom_point()
+    })
     
     
     #########################################################################################################
