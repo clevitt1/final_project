@@ -10,6 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, warnings=FALSE}
 #####################FOURSEAM############
+library(dplyr)
 Fourseam_FB<-read.csv("4F_1.csv",  stringsAsFactors=FALSE, header=T)
 seq<-c("4F_2.csv","4F_3.csv","4F_4.csv","4F_5.csv","4F_6.csv","4F_7.csv","4F_8.csv","4F_9.csv")
 for (val in seq){
@@ -78,6 +79,14 @@ for (val in seq){
 Pitches<-rbind(Fourseam_FB, Twoseam_FB, Change, Curve, KCurve, Slider, Cutter, Splitter, Sinker)
 
 
+library(ggplot2)
+library(dplyr)
+library(stringr)
+library(knitr)
+library(tidyr)
+library(shiny)
+library(DT)
+library(caret)
 Pitches_Wrangled<-Pitches%>%
   select(pfx_x, pfx_z, effective_speed,release_speed ,release_spin_rate, pitch_type, p_throws,player_name, description, stand, woba_value, estimated_woba_using_speedangle, launch_speed, launch_angle)%>%
   mutate(pfx_x=as.numeric(pfx_x), pfx_z=as.numeric(pfx_z), effective_speed=as.numeric(effective_speed),release_speed=as.numeric(release_speed),release_spin_rate=as.numeric(release_spin_rate), woba_value=as.numeric(woba_value), estimated_woba_using_speedangle=as.numeric(estimated_woba_using_speedangle), launch_speed=as.numeric(launch_speed), launch_angle=as.numeric(launch_angle))%>%
@@ -86,11 +95,10 @@ Pitches_Wrangled<-Pitches%>%
   drop_na(effective_speed)%>%
   drop_na(release_speed)%>%
   drop_na(release_spin_rate)%>%
-  mutate()
-
-Pitches_Test<-Pitches_Wrangled%>%
+  filter(description!="pitchout")
   mutate(description=as.factor(description))
-  
+
+
 
 
 
