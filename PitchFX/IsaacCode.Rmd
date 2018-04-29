@@ -1,0 +1,510 @@
+---
+title: "PitchRx Code"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, warnings=FALSE}
+#####################FOURSEAM############
+library(dplyr)
+Fourseam_FB<-read.csv("4F_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("4F_2.csv","4F_3.csv","4F_4.csv","4F_5.csv","4F_6.csv","4F_7.csv","4F_8.csv","4F_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Fourseam_FB<-rbind(Fourseam_FB, new)
+}
+
+
+Twoseam_FB<-read.csv("2F_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("2F_2.csv","2F_3.csv","2F_4.csv","2F_5.csv","2F_6.csv","2F_7.csv","2F_8.csv","2F_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Twoseam_FB<-rbind(Twoseam_FB, new)
+}
+
+
+Change<-read.csv("CH_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("CH_2.csv","CH_3.csv","CH_4.csv","CH_5.csv","CH_6.csv","CH_7.csv","CH_8.csv","CH_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Change<-rbind(Change, new)
+}
+
+Sinker<-read.csv("SN_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("SN_2.csv","SN_3.csv","SN_4.csv","SN_5.csv","SN_6.csv","SN_7.csv","SN_8.csv","SN_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Sinker<-rbind(Sinker, new)
+}
+
+Slider<-read.csv("SL_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("SL_2.csv","SL_3.csv","SL_4.csv","SL_5.csv","SL_6.csv","SL_7.csv","SL_8.csv","SL_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Slider<-rbind(Slider, new)
+}
+
+KCurve<-read.csv("KC_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("KC_2.csv","KC_3.csv","KC_4.csv","KC_5.csv","KC_6.csv","KC_7.csv","KC_8.csv","KC_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  KCurve<-rbind(KCurve, new)
+}
+
+Splitter<-read.csv("FS_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("FS_2.csv","FS_3.csv","FS_4.csv","FS_5.csv","FS_6.csv","FS_7.csv","FS_8.csv","FS_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Splitter<-rbind(Splitter, new)
+}
+
+Cutter<-read.csv("FC_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("FC_2.csv","FC_3.csv","FC_4.csv","FC_5.csv","FC_6.csv","FC_7.csv","FC_8.csv","FC_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Cutter<-rbind(Cutter, new)
+}
+
+Curve<-read.csv("CV_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("CV_2.csv","CV_3.csv","CV_4.csv","CV_5.csv","CV_6.csv","CV_7.csv","CV_8.csv","CV_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Curve<-rbind(Curve, new)
+}
+
+Pitches<-rbind(Fourseam_FB, Twoseam_FB, Change, Curve, KCurve, Slider, Cutter, Splitter, Sinker)
+
+
+library(ggplot2)
+library(dplyr)
+library(stringr)
+library(knitr)
+library(tidyr)
+library(shiny)
+library(DT)
+library(caret)
+Pitches_Wrangled<-Pitches%>%
+  select(pfx_x, pfx_z, effective_speed,release_speed ,release_spin_rate, pitch_type, p_throws,player_name, description, stand, woba_value, estimated_woba_using_speedangle, launch_speed, launch_angle, des)%>%
+  mutate(pfx_x=as.numeric(pfx_x), pfx_z=as.numeric(pfx_z), effective_speed=as.numeric(effective_speed),release_speed=as.numeric(release_speed),release_spin_rate=as.numeric(release_spin_rate), woba_value=as.numeric(woba_value), estimated_woba_using_speedangle=as.numeric(estimated_woba_using_speedangle), launch_speed=as.numeric(launch_speed), launch_angle=as.numeric(launch_angle))%>%
+  drop_na(pfx_x)%>%
+  drop_na(pfx_z)%>%
+  drop_na(effective_speed)%>%
+  drop_na(release_speed)%>%
+  drop_na(release_spin_rate)%>%
+  filter(description!="pitchout")%>%
+  mutate(description=as.factor(description))
+
+
+
+
+
+```
+
+
+
+```{r, warnings=FALSE}
+library(ggplot2)
+library(dplyr)
+library(stringr)
+library(knitr)
+library(tidyr)
+library(shiny)
+library(DT)
+library(caret)
+library(plotly)
+
+#UI Side
+ui<-shinyUI(navbarPage("PitchFX APP",
+                       tabPanel("Project Overview",
+                                helpText("Paragraphs"),
+                                helpText("Paragraphs")
+                                ),
+                       tabPanel("Isaac", titlePanel("User Input"),
+                                sidebarLayout(
+                                  sidebarPanel(helpText("PitchFX Input"),
+                                               selectInput(inputId="pitcher_throws",
+                                                           label="Pitcher Handedness",
+                                                           choices=list("Right-Handed"="R",
+                                                                        "Left-Handed"="L")),
+                                               textInput(inputId="pfx_x",
+                                                         label="PFX_X",
+                                                         value=0),
+                                               textInput(inputId="pfx_z",
+                                                         label="PFX_Z",
+                                                         value=0),
+                                               textInput(inputId="effective_speed",
+                                                         label="Effective Velo",
+                                                         value=90),
+                                               textInput(inputId="release_speed",
+                                                         label="Release Velo",
+                                                         value=90),
+                                               textInput(inputId="release_spin_rate",
+                                                         label="Release Spin Rate",
+                                                         value=2000),
+                                               sliderInput(inputId="pick_md", 
+                                                           label="Pick Mahalanobis Distance",
+                                                           min = .05, max = 5,
+                                                           value = 1.0, step = 0.05),
+                                               checkboxGroupInput(inputId = "batter_hand",
+                                                                  label="Batter Handedness",
+                                                                  choices=list("Right-Handed"="R",
+                                                                            "Left-Handed"="L"),
+                                                                  selected=c("R", "L")),
+                                              actionButton("go", "Fit Models")
+                                               
+                                  ), 
+                                  mainPanel(
+                                    tabsetPanel(type="tabs",
+                                                tabPanel("Instructions"),
+                                                tabPanel("Data Table for Similar Pitches", DT::dataTableOutput("pitchTable")),
+                                                tabPanel("Two",DT::dataTableOutput("swingTable")),
+                                                tabPanel("Three", DT::dataTableOutput("models")),
+                                                tabPanel("Four",DT::dataTableOutput("outcomes")),
+                                                #Charlie add tabs here
+                                                tabPanel("Scatter Plot", plotlyOutput("plot1")),
+                                                tabPanel("Swing and Miss", plotlyOutput("plot2")),
+                                                tabPanel("Hist of wOBA", plotlyOutput("plot3")),
+                                                tabPanel("Estimating wOBA", plotlyOutput("plot4")),
+                                                tabPanel("Density Plot: Est wOBA", plotlyOutput("plot5")),
+                                                tabPanel("Accuracy of wOBA", plotlyOutput("plot6"))
+                                                
+                                                )
+                                  )
+                                ))
+                                
+                       )
+                       
+)
+#server
+server<-shinyServer(function(input,output){
+
+    pitch_data_for_cov<-reactive({
+      Pitches_Wrangled[,1:5]
+    })
+    
+    cov_matrix<-reactive({
+      
+      solve(cov(pitch_data_for_cov(), y=NULL, use="everything"))
+    })
+    
+    pitch_data<-reactive({
+      CovInv<-cov_matrix()
+      Pitches_Wrangled%>%
+        filter(p_throws==input$pitcher_throws)%>%
+        filter(stand==input$batter_hand)%>%
+        mutate(d1=pfx_x-as.numeric(input$pfx_x))%>%
+        mutate(d2=pfx_z-as.numeric(input$pfx_z))%>%
+        mutate(d3=effective_speed-as.numeric(input$effective_speed))%>%
+        mutate(d4=release_speed-as.numeric(input$release_speed))%>%
+        mutate(d5=release_spin_rate-as.numeric(input$release_spin_rate))%>%
+        mutate(p1=d1*CovInv[1]+d2*CovInv[2]+d3*CovInv[3]+d4*CovInv[4]+d5*CovInv[5])%>%
+        mutate(p2=d1*CovInv[6]+d2*CovInv[7]+d3*CovInv[8]+d4*CovInv[9]+d5*CovInv[10])%>%
+        mutate(p3=d1*CovInv[11]+d2*CovInv[12]+d3*CovInv[13]+d4*CovInv[14]+d5*CovInv[15])%>%
+        mutate(p4=d1*CovInv[16]+d2*CovInv[17]+d3*CovInv[18]+d4*CovInv[19]+d5*CovInv[20])%>%
+        mutate(p5=d1*CovInv[21]+d2*CovInv[22]+d3*CovInv[23]+d4*CovInv[24]+d5*CovInv[25])%>%
+        mutate(md2=(d1*p1+d2*p2+d3*p3+d4*p4+d5*p5))%>%
+        mutate(md=(md2)^.5)%>%
+        arrange(md)%>%
+        filter(md<=input$pick_md)
+        
+        
+      
+    })
+    swing_data<-reactive({
+      pitch_data()%>%
+        filter(description=="foul"|description=="foul_tip"|description=="hit_into_play"|description=="hit_into_play_no_out"|description=="hit_into_play_score"|description=="swinging_strike"|description=="swinging_strike_blocked")%>%
+        mutate(estimated_woba_using_speedangle=ifelse(is.na(estimated_woba_using_speedangle),0,estimated_woba_using_speedangle))
+    })
+    
+    pitch_data_vis<-reactive({
+      pitch_data()%>%
+        select(md, player_name, p_throws, stand, pitch_type, description, des, pfx_x, pfx_z, effective_speed, release_speed, release_spin_rate, launch_angle, launch_speed, estimated_woba_using_speedangle)%>%
+        rename(`Mahalanobis Distance`=md, Pitcher=player_name, `Pitcher Handedness`=p_throws, `Batter Handedness`=stand, Result=description, `Play Overview`=des, `Estimated wOBA`=estimated_woba_using_speedangle, `Launch Speed`=launch_speed, `Launch Angle`=launch_angle, `PFX_X (H-Break)`=pfx_x, `PFX_Z (V-Break)`=pfx_z, `Effective Velo`=effective_speed, `Release Velo`=release_speed, `Release Spin Rate`=release_spin_rate, `Pitch Type`=pitch_type)
+    })
+    
+    output$pitchTable<-DT::renderDataTable({
+      DT::datatable(data=pitch_data_vis(), rownames=FALSE)
+    }, server=TRUE)
+    
+    
+
+    output$swingTable<-DT::renderDataTable({
+      DT::datatable(data=swing_data(), rownames=FALSE)
+    }, server=TRUE)
+    
+
+    
+    ###############
+    input_dataframe<-reactive({
+      data.frame("pfx_x"=as.numeric(input$pfx_x), "pfx_z"=as.numeric(input$pfx_z), "effective_speed"=as.numeric(input$effective_speed), "release_speed"=as.numeric(input$release_speed), "release_spin_rate"=as.numeric(input$release_spin_rate))
+    })
+    
+    
+    #as it pertains to total swings
+    total_pitches<-reactive({dim(swing_data())[1]})
+    
+    hard_hit<-reactive({
+      dim(swing_data()%>%
+            filter(launch_speed>=100)
+      )[1]/total_pitches()
+    })
+    
+    
+    swing_strike<-reactive({
+      dim(pitch_data()%>%
+            filter(description=="swinging_strike"|description=="swinging_strike_blocked")
+      )[1]/total_pitches()
+    })
+    
+    foul<-reactive({
+      dim(pitch_data()%>%
+            filter(description=="foul"|description=="foul_tip")
+      )[1]/total_pitches()
+    })
+    
+    groundball<-reactive({
+      dim(pitch_data()%>%
+            filter(launch_angle<10, description!="foul", description!="foul_tip")
+      )[1]/total_pitches()
+    })    
+    
+    linedrive<-reactive({
+      dim(pitch_data()%>%
+            filter(launch_angle>=10, launch_angle<25, description!="foul", description!="foul_tip")
+      )[1]/total_pitches()
+    }) 
+    
+    flyball<-reactive({
+      dim(pitch_data()%>%
+            filter(launch_angle>=25, launch_angle<=50, description!="foul", description!="foul_tip")
+      )[1]/total_pitches()
+    })
+
+    popup<-reactive({
+      dim(pitch_data()%>%
+            filter(launch_angle>50, description!="foul", description!="foul_tip")
+      )[1]/total_pitches()
+    })
+    
+    batted_ball_outcomes<-reactive({
+      data.frame("Foul"=foul(), "Swinging Strike"=swing_strike(), "GB"=groundball(), "LD"=linedrive(), "FB"=flyball(), "PU"=popup())
+    })
+    
+    output$outcomes<-DT::renderDataTable({
+      DT::datatable(data=batted_ball_outcomes(), rownames=FALSE)
+    }, server=TRUE)
+    
+    cv_opts<-trainControl(method="repeatedcv", number=10, repeats = 3)
+    grd<-data.frame(.mtry=c(1,2,3,4,5))
+    
+    
+    output$models<-DT::renderDataTable({
+      req(input$go)
+      
+      mod_TR <- train(estimated_woba_using_speedangle~pfx_x+pfx_z+effective_speed+release_speed+release_spin_rate, data=swing_data(), method = "rpart",trControl = cv_opts)
+      RMSE_TR<-min(mod_TR$results$RMSE)
+      Pred_TR<-predict(mod_TR, input_dataframe())
+      
+      mod_TB<-train(estimated_woba_using_speedangle~pfx_x+pfx_z+effective_speed+release_speed+release_spin_rate, data=swing_data(), method="treebag", trControl=cv_opts)
+      RMSE_TB<-min(mod_TB$results$RMSE)
+      Pred_TB<-predict(mod_TB, input_dataframe())
+      
+      mod_RF<-train(estimated_woba_using_speedangle~pfx_x+pfx_z+effective_speed+release_speed+release_spin_rate, data=swing_data(), method="rf", trControl=cv_opts)
+      RMSE_RF<-min(mod_RF$results$RMSE)
+      Pred_RF<-predict(mod_RF, input_dataframe())
+      
+      svm_results<-data.frame("Model"=c("Regression Tree", "Bagged Tree", "Random Forest"), "Prediction"=c(Pred_TR, Pred_TB,Pred_RF), "RMSE"=c(RMSE_TR, RMSE_TB,RMSE_RF))
+      DT::datatable(data=svm_results, rownames=FALSE)
+    }, server=TRUE)
+    
+    
+    
+    
+    
+
+      
+    
+    
+    ############
+    
+    
+    
+    library(plotly)
+    pitch_data_for_scatter<-reactive({
+      pitch_data() %>%
+        filter(description != "missed_bunt") %>%
+        filter(description != "ball") %>%
+        filter(description != "swinging_strike") %>%
+        filter(description != "called_strike") %>%
+        filter(description != "foul_tip") %>%
+        filter(description != "foul_bunt") %>%
+        filter(description != "foul") %>%
+        filter(description != "hit_by_pitch") %>%
+        filter(description != "swinging_strike_blocked") %>%
+       filter(description != "blocked_ball")
+      }) 
+    
+    pitch_data_for_SwingAndMiss<-reactive({
+      pitch_data() %>%
+        filter(description != "missed_bunt") %>%
+        filter(description != "foul_bunt") %>%
+        mutate(outcome = ifelse(description == "foul_tip" | description == "foul" | description == "hit_into_play" | description == "hit_into_play_score" | description == "hit_into_play_no_out", "Contact", ifelse(description == "swinging_strike" | description == "swinging_strike_blocked", "Swing and Miss", ifelse(description == "ball" | description == "blocked_ball" | description == "hit_by_pitch", "Taken Ball", ifelse(description == "called_strike", "Taken Strike", 0)))))
+                })
+      
+    output$plot1 <- renderPlotly({
+      req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+      ggplot(data = pitch_data_for_scatter(), 
+           mapping = aes_string(x = "launch_angle", y = "launch_speed")) + geom_point(col = "red", alpha = .8)+
+        ylab("Launch Speed") + xlab("Launch Angle") + labs(title = "Launch Angle versus Launch Speed")
+    })
+    
+    output$plot2 <- renderPlotly({
+      req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+      ggplot(data = pitch_data_for_SwingAndMiss(), 
+           mapping = aes(outcome)) + geom_bar(col = "white", fill = "red")+
+        ylab("Amount") + xlab("Outcome") + labs(title = "Chances of Making Contact")
+    })
+    
+    output$plot3 <- renderPlotly({
+      req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+      ggplot(data = pitch_data_for_SwingAndMiss(), 
+           mapping = aes(woba_value)) + geom_bar(col ="white", fill = "red") +
+        ylab("Amount") + xlab("wOBA Value") + labs(title = "Histogram of wOBA Values")
+    })
+    
+     output$plot4 <- renderPlotly({
+      req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+      ggplot(data = swing_data(), 
+           mapping = aes(x = launch_angle, y = estimated_woba_using_speedangle, col = launch_speed)) + geom_point(alpha = .8) + scale_fill_discrete(name = "Launch Speed") + scale_color_gradient(low="blue", high="red") +
+        ylab("Estimated wOBA Value") + xlab("Launch Angle") + labs(title = "How Launch Angle Impacts Esimated wOBA")
+        
+     })
+     
+     output$plot5 <- renderPlotly({
+      req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+        ggplot(data = swing_data(),
+               mapping = aes(estimated_woba_using_speedangle)) +
+      geom_density(col = "red") +
+        ylab("Density") + xlab("Estimated wOBA Value") + labs(title = "Density Plot of Estimated wOBA Values")
+        
+     })
+     
+     output$plot6 <- renderPlotly({
+      req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+      ggplot(data = swing_data(), 
+           mapping = aes(x = woba_value, y = estimated_woba_using_speedangle)) + geom_point(col = "red", alpha = .8)+
+        ylab("Est wOBA Value") + xlab("wOBA Value") + labs(title = "Does accuracy of wOBA change depending on pitch")
+    })
+     
+    
+    #########################################################################################################
+})
+
+
+
+
+shinyApp(ui=ui, server=server)
+
+```
+
+
+
+
+    cv_opts<-trainControl(method="cv", number=10)
+    
+    
+    
+
+
+
+
+
+
+```{r}
+
+Fourseam_FB<-read.csv("4F_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("4F_2.csv","4F_3.csv","4F_4.csv","4F_5.csv","4F_6.csv","4F_7.csv","4F_8.csv","4F_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Fourseam_FB<-rbind(Fourseam_FB, new)
+}
+
+FourSeam_Compare<-Fourseam_FB%>%
+  select(pfx_x, pfx_z, effective_speed,release_speed ,release_spin_rate, player_name, description, woba_value, des)%>%
+  mutate(pfx_x=as.numeric(pfx_x), pfx_z=as.numeric(pfx_z), effective_speed=as.numeric(effective_speed),release_speed=as.numeric(release_speed),release_spin_rate=as.numeric(release_spin_rate), woba_value=as.numeric(woba_value))%>%
+  drop_na(pfx_x)%>%
+  drop_na(pfx_z)%>%
+  drop_na(effective_speed)%>%
+  drop_na(release_speed)%>%
+  drop_na(release_spin_rate)%>%
+  rename(wh=des)
+
+pitch_choices<-(Fourseam_FB_Wrangled)
+
+FourSeam_Cov<-cov(FourSeam_Compare[,1:5], y=NULL, use="everything")
+CovInv<-solve(FourSeam_Cov)
+x<-c(0, 0, 90, 93, 2000)
+x2<-c(-1.3185, 1.0058, 93.948, 96.0, 2192)
+ll<-I(list(c(-.7521, 1.412, 91.631, 96.2, 2012)))
+
+mahalanobis(as.numeric(x), as.numeric(FourSeam_Compare[2,c(1,2,3,4,5)]), FourSeam_Cov)
+mahalanobis(as.numeric(ll[[1]]), as.numeric(FourSeam_Compare[1,c(1,2,3,4,5)]), FourSeam_Cov)
+
+
+
+list <- as.vector(split(FourSeam_Compare[1:20,1:5], seq(nrow(FourSeam_Compare[1:20,1:5]))))
+list2<-unlist(list, use.names = FALSE)
+
+FourSeam_Compare2<-FourSeam_Compare%>%
+  #mutate(subvec=I(list(x)[]))%>%
+  #mutate(lists=list[])%>%
+  #mutate(lists=unlist(lists[], use.names=FALSE))%>%
+  #mutate(fx=unlist(lists))
+ # mutate(md=mahalanobis(as.numeric(c(subvec[[1]][1], subvec[[1]][2], subvec[[1]][3], subvec[[1]][4], subvec[[1]][5])),
+                        #as.numeric(c(lists[[1]][1], 1, 91, 92, 2000)),
+                        #FourSeam_Cov))%>%
+  mutate(d1=pfx_x-x[1])%>%
+  mutate(d2=pfx_z-x[2])%>%
+  mutate(d3=effective_speed-x[3])%>%
+  mutate(d4=release_speed-x[4])%>%
+  mutate(d5=release_spin_rate-x[5])%>%
+  mutate(p1=d1*CovInv[1]+d2*CovInv[2]+d3*CovInv[3]+d4*CovInv[4]+d5*CovInv[5])%>%
+  mutate(p2=d1*CovInv[6]+d2*CovInv[7]+d3*CovInv[8]+d4*CovInv[9]+d5*CovInv[10])%>%
+  mutate(p3=d1*CovInv[11]+d2*CovInv[12]+d3*CovInv[13]+d4*CovInv[14]+d5*CovInv[15])%>%
+  mutate(p4=d1*CovInv[16]+d2*CovInv[17]+d3*CovInv[18]+d4*CovInv[19]+d5*CovInv[20])%>%
+  mutate(p5=d1*CovInv[21]+d2*CovInv[22]+d3*CovInv[23]+d4*CovInv[24]+d5*CovInv[25])%>%
+  mutate(md2=(d1*p1+d2*p2+d3*p3+d4*p4+d5*p5))%>%
+  mutate(md=(md2)^.5)
+
+  
+  
+FourSeam_Compare$md<-0
+  
+for (ii in 255801){
+  FourSeam_Compare$md[ii]<-mahalanobis(as.numeric(x), as.numeric(FourSeam_Compare[1,c(1,2,3,4,5)]), FourSeam_Cov)
+}
+
+
+```
+
+
+```{r}
+Twoseam_FB<-read.csv("2F_1.csv",  stringsAsFactors=FALSE, header=T)
+seq2<-c("2F_2.csv","2F_3.csv","2F_4.csv","2F_5.csv","2F_6.csv","2F_7.csv","2F_8.csv","2F_9.csv")
+for (val in seq2){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Twoseam_FB<-rbind(Twoseam_FB, new)
+}
+
+
+Test2<-Twoseam_FB%>%
+  for (ii in 1:3){
+    mutate(paste("il", ii), 1)
+  }
+
+
+```
