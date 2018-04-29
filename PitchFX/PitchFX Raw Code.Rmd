@@ -161,7 +161,8 @@ ui<-shinyUI(navbarPage("PitchFX APP",
                                                 tabPanel("Three", DT::dataTableOutput("models")),
                                                 tabPanel("Scatter Plot", plotlyOutput("plot1")),
                                                 tabPanel("Swing and Miss", plotlyOutput("plot2")),
-                                                 tabPanel("Hist of wOBA", plotlyOutput("plot3")),
+                                                tabPanel("Hist of wOBA", plotlyOutput("plot3")),
+                                                tabPanel("Estimating wOBA", plotlyOutput("plot4")),
                                                 tabPanel("dt", dataTableOutput("pitchTable1"))
                                                 )
                                   )
@@ -283,9 +284,17 @@ server<-shinyServer(function(input,output){
     output$plot3 <- renderPlotly({
       req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
       ggplot(data = pitch_data_for_SwingAndMiss(), 
-           mapping = aes(woba_value)) + geom_bar(fill = "red")+
+           mapping = aes(woba_value)) + geom_bar(fill = "red") +
         ylab("Amount") + xlab("wOBA Value") + labs(title = "Histogram of wOBA Values")
     })
+    
+     output$plot4 <- renderPlotly({
+      req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+      ggplot(data = swing_data(), 
+           mapping = aes(x = launch_angle, y = estimated_woba_using_speedangle)) + geom_point(col = "red")+
+        ylab("Estimated wOBA Value") + xlab("Launch Angle") + labs(title = "How Launch Angle Impacts Esimated wOBA")
+        
+     })
     
     #########################################################################################################
 })
