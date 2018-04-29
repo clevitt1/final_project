@@ -159,7 +159,8 @@ ui<-shinyUI(navbarPage("PitchFX APP",
                                                 tabPanel("One", DT::dataTableOutput("pitchTable")),
                                                 tabPanel("Two",DT::dataTableOutput("swingTable")),
                                                 tabPanel("Three", DT::dataTableOutput("models")),
-                                                tabPanel("Graphs", plotlyOutput("plot1")),
+                                                tabPanel("Scatter Plot", plotlyOutput("plot1")),
+                                                tabPanel("Swing and Miss", plotlyOutput("plot2")),
                                                 tabPanel("dt", dataTableOutput("pitchTable1"))
                                                 )
                                   )
@@ -238,8 +239,10 @@ server<-shinyServer(function(input,output){
     
     
     ####################################CHARLIE YOUR SERVER CODE HERE#############################################
+    library(plotly)
     pitch_data_for_scatter<-reactive({
       pitch_data() %>%
+        filter(description != "missed_bunt") %>%
         filter(description != "ball") %>%
         filter(description != "swinging_strike") %>%
         filter(description != "called_strike") %>%
@@ -251,14 +254,29 @@ server<-shinyServer(function(input,output){
        filter(description != "blocked_ball")
       }) 
     
+    pitch_data_for_SwingAndMiss<-reactive({
+      pitch_data() %>%
+        filter(description != "missed_bunt") %>%
+        filter(description != "foul_bunt") %>%
+        mutate(outcome = ifelse(description == "foul_tip" | description == "foul" | description == "hit_into_play" | description == "hit_into_play_score" | description == "hit_into_play_no_out", "Contact", ifelse(description == "swinging_strike" | description == "swinging_strike_blocked", "Swing_and_Miss", ifelse(description == "ball" | description == "called_strike" | description == "blocked_ball" | description == "hit_by_pitch", "Taken_Pitch", 0))))
+                })
+      
     output$pitchTable1<-DT::renderDataTable({
-      DT::datatable(data=pitch_data_for_scatter(), rownames=FALSE)
+      DT::datatable(data=pitch_data_for_SwingAndMiss(), rownames=FALSE)
     }, server=TRUE)
     
     output$plot1 <- renderPlotly({
       req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
       ggplot(data = pitch_data_for_scatter(), 
-           mapping = aes_string(x = "launch_angle", y = "launch_speed")) + geom_point()
+           mapping = aes_string(x = "launch_angle", y = "launch_speed")) + geom_point(col = "red")+
+        ylab("Launch Speed") + xlab("Launch Angle") + labs(title = "Launch Angle versus Launch Speed")
+    })
+    
+    output$plot2 <- renderPlotly({
+      req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+      ggplot(data = pitch_data_for_SwingAndMiss(), 
+           mapping = aes(outcome)) + geom_bar(fill = "red")+
+        ylab("Amount") + xlab("Outcome") + labs(title = "Chances of Making Contact")
     })
     
     
