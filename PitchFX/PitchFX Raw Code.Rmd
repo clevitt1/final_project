@@ -120,6 +120,7 @@ library(caret)
 #UI Side
 ui<-shinyUI(navbarPage("PitchFX APP",
                        tabPanel("App Explanation"),
+                       tabPanel("Charlie"),
                        tabPanel("Isaac", titlePanel("User Input"),
                                 sidebarLayout(
                                   sidebarPanel(helpText("PitchFX Input"),
@@ -152,6 +153,7 @@ ui<-shinyUI(navbarPage("PitchFX APP",
                                                                                "Left-Handed"="L"),
                                                                   selected=c("R", "L")),
                                                actionButton("go", "Fit Models")
+                                      
                                                
                                   ), 
                                   mainPanel(
@@ -163,14 +165,18 @@ ui<-shinyUI(navbarPage("PitchFX APP",
                                                 tabPanel("Swing and Miss", plotlyOutput("plot2")),
                                                 tabPanel("Hist of wOBA", plotlyOutput("plot3")),
                                                 tabPanel("Estimating wOBA", plotlyOutput("plot4")),
-                                                tabPanel("dt", dataTableOutput("pitchTable1"))
+                                                tabPanel("Density Plot: Est wOBA", plotlyOutput("plot5")),
+                                                 tabPanel("Accuracy of wOBA", plotlyOutput("plot6"))
+                                            
                                                 )
                                   )
                                 ))
                                 
                        )
                        
+          
 )
+
 #server
 server<-shinyServer(function(input,output){
 
@@ -260,41 +266,54 @@ server<-shinyServer(function(input,output){
       pitch_data() %>%
         filter(description != "missed_bunt") %>%
         filter(description != "foul_bunt") %>%
-        mutate(outcome = ifelse(description == "foul_tip" | description == "foul" | description == "hit_into_play" | description == "hit_into_play_score" | description == "hit_into_play_no_out", "Contact", ifelse(description == "swinging_strike" | description == "swinging_strike_blocked", "Swing_and_Miss", ifelse(description == "ball" | description == "called_strike" | description == "blocked_ball" | description == "hit_by_pitch", "Taken_Pitch", 0))))
+        mutate(outcome = ifelse(description == "foul_tip" | description == "foul" | description == "hit_into_play" | description == "hit_into_play_score" | description == "hit_into_play_no_out", "Contact", ifelse(description == "swinging_strike" | description == "swinging_strike_blocked", "Swing and Miss", ifelse(description == "ball" | description == "blocked_ball" | description == "hit_by_pitch", "Taken Pitch", ifelse(description == "called_strike", "Taken Strike", 0)))))
                 })
       
-    output$pitchTable1<-DT::renderDataTable({
-      DT::datatable(data=pitch_data_for_SwingAndMiss(), rownames=FALSE)
-    }, server=TRUE)
-    
     output$plot1 <- renderPlotly({
       req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
       ggplot(data = pitch_data_for_scatter(), 
-           mapping = aes_string(x = "launch_angle", y = "launch_speed")) + geom_point(col = "red")+
+           mapping = aes_string(x = "launch_angle", y = "launch_speed")) + geom_point(col = "red", alpha = .8)+
         ylab("Launch Speed") + xlab("Launch Angle") + labs(title = "Launch Angle versus Launch Speed")
     })
     
     output$plot2 <- renderPlotly({
       req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
       ggplot(data = pitch_data_for_SwingAndMiss(), 
-           mapping = aes(outcome)) + geom_bar(fill = "red")+
+           mapping = aes(outcome)) + geom_bar(col = "white", fill = "red")+
         ylab("Amount") + xlab("Outcome") + labs(title = "Chances of Making Contact")
     })
     
     output$plot3 <- renderPlotly({
       req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
       ggplot(data = pitch_data_for_SwingAndMiss(), 
-           mapping = aes(woba_value)) + geom_bar(fill = "red") +
+           mapping = aes(woba_value)) + geom_bar(col ="white", fill = "red") +
         ylab("Amount") + xlab("wOBA Value") + labs(title = "Histogram of wOBA Values")
     })
     
      output$plot4 <- renderPlotly({
       req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
       ggplot(data = swing_data(), 
-           mapping = aes(x = launch_angle, y = estimated_woba_using_speedangle)) + geom_point(col = "red")+
+           mapping = aes(x = launch_angle, y = estimated_woba_using_speedangle, col = launch_speed)) + geom_point(alpha = .8) + scale_fill_discrete(name = "Launch Speed") + scale_color_gradient(low="blue", high="red") +
         ylab("Estimated wOBA Value") + xlab("Launch Angle") + labs(title = "How Launch Angle Impacts Esimated wOBA")
         
      })
+     
+     output$plot5 <- renderPlotly({
+      req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+        ggplot(data = swing_data(),
+               mapping = aes(estimated_woba_using_speedangle)) +
+      geom_density(col = "red") +
+        ylab("Density") + xlab("Estimated wOBA Value") + labs(title = "Density Plot of wOBA Values")
+        
+     })
+     
+     output$plot6 <- renderPlotly({
+      req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+      ggplot(data = swing_data(), 
+           mapping = aes(x = woba_value, y = estimated_woba_using_speedangle)) + geom_point(col = "red", alpha = .8)+
+        ylab("Est wOBA Value") + xlab("wOBA Value") + labs(title = "Does accuracy of wOBA change depending on pitch")
+    })
+     
     
     #########################################################################################################
 })
