@@ -161,6 +161,7 @@ ui<-shinyUI(navbarPage("PitchFX APP",
                                                 tabPanel("Three", DT::dataTableOutput("models")),
                                                 tabPanel("Scatter Plot", plotlyOutput("plot1")),
                                                 tabPanel("Swing and Miss", plotlyOutput("plot2")),
+                                                 tabPanel("Hist of wOBA", plotlyOutput("plot3")),
                                                 tabPanel("dt", dataTableOutput("pitchTable1"))
                                                 )
                                   )
@@ -279,6 +280,12 @@ server<-shinyServer(function(input,output){
         ylab("Amount") + xlab("Outcome") + labs(title = "Chances of Making Contact")
     })
     
+    output$plot3 <- renderPlotly({
+      req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+      ggplot(data = pitch_data_for_SwingAndMiss(), 
+           mapping = aes(woba_value)) + geom_bar(fill = "red")+
+        ylab("Amount") + xlab("wOBA Value") + labs(title = "Histogram of wOBA Values")
+    })
     
     #########################################################################################################
 })
