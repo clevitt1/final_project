@@ -1,0 +1,105 @@
+---
+title: "Wrangling Code"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, warnings=FALSE}
+#####################FOURSEAM############
+library(dplyr)
+Fourseam_FB<-read.csv("4F_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("4F_2.csv","4F_3.csv","4F_4.csv","4F_5.csv","4F_6.csv","4F_7.csv","4F_8.csv","4F_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Fourseam_FB<-rbind(Fourseam_FB, new)
+}
+
+
+Twoseam_FB<-read.csv("2F_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("2F_2.csv","2F_3.csv","2F_4.csv","2F_5.csv","2F_6.csv","2F_7.csv","2F_8.csv","2F_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Twoseam_FB<-rbind(Twoseam_FB, new)
+}
+
+
+Change<-read.csv("CH_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("CH_2.csv","CH_3.csv","CH_4.csv","CH_5.csv","CH_6.csv","CH_7.csv","CH_8.csv","CH_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Change<-rbind(Change, new)
+}
+
+Sinker<-read.csv("SN_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("SN_2.csv","SN_3.csv","SN_4.csv","SN_5.csv","SN_6.csv","SN_7.csv","SN_8.csv","SN_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Sinker<-rbind(Sinker, new)
+}
+
+Slider<-read.csv("SL_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("SL_2.csv","SL_3.csv","SL_4.csv","SL_5.csv","SL_6.csv","SL_7.csv","SL_8.csv","SL_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Slider<-rbind(Slider, new)
+}
+
+KCurve<-read.csv("KC_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("KC_2.csv","KC_3.csv","KC_4.csv","KC_5.csv","KC_6.csv","KC_7.csv","KC_8.csv","KC_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  KCurve<-rbind(KCurve, new)
+}
+
+Splitter<-read.csv("FS_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("FS_2.csv","FS_3.csv","FS_4.csv","FS_5.csv","FS_6.csv","FS_7.csv","FS_8.csv","FS_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Splitter<-rbind(Splitter, new)
+}
+
+Cutter<-read.csv("FC_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("FC_2.csv","FC_3.csv","FC_4.csv","FC_5.csv","FC_6.csv","FC_7.csv","FC_8.csv","FC_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Cutter<-rbind(Cutter, new)
+}
+
+Curve<-read.csv("CV_1.csv",  stringsAsFactors=FALSE, header=T)
+seq<-c("CV_2.csv","CV_3.csv","CV_4.csv","CV_5.csv","CV_6.csv","CV_7.csv","CV_8.csv","CV_9.csv")
+for (val in seq){
+  new<-read.csv(val, stringsAsFactors=FALSE, header=T)
+  Curve<-rbind(Curve, new)
+}
+
+Pitches<-rbind(Fourseam_FB, Twoseam_FB, Change, Curve, KCurve, Slider, Cutter, Splitter, Sinker)
+
+
+library(ggplot2)
+library(dplyr)
+library(stringr)
+library(knitr)
+library(tidyr)
+library(shiny)
+library(DT)
+library(caret)
+Pitches_Wrangled<-Pitches%>%
+  select(pfx_x, pfx_z, effective_speed,release_speed ,release_spin_rate, pitch_type, p_throws,player_name, description, stand, woba_value, estimated_woba_using_speedangle, launch_speed, launch_angle, des, plate_x, plate_z)%>%
+  mutate(pfx_x=as.numeric(pfx_x), pfx_z=as.numeric(pfx_z), effective_speed=as.numeric(effective_speed),release_speed=as.numeric(release_speed),release_spin_rate=as.numeric(release_spin_rate), woba_value=as.numeric(woba_value), estimated_woba_using_speedangle=as.numeric(estimated_woba_using_speedangle), launch_speed=as.numeric(launch_speed), launch_angle=as.numeric(launch_angle), plate_x=as.numeric(plate_x), plate_z=as.numeric(plate_z))%>%
+  drop_na(pfx_x)%>%
+  drop_na(pfx_z)%>%
+  drop_na(effective_speed)%>%
+  drop_na(release_speed)%>%
+  drop_na(release_spin_rate)%>%
+  filter(description!="pitchout")%>%
+  mutate(description=as.factor(description))
+
+
+
+
+
+```

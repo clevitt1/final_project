@@ -1,0 +1,422 @@
+#data taken from Pitch
+library(ggplot2)
+library(dplyr)
+library(stringr)
+library(knitr)
+library(tidyr)
+library(shiny)
+library(DT)
+library(caret)
+library(plotly)
+library(kernlab)
+
+Pitches_Wrangled<-read.csv("Pitches_Wrangled.csv")
+
+#UI Side
+ui<-shinyUI(navbarPage("PitchFX APP",
+                       tabPanel("Project Overview",
+                                p("In today’s post-Moneyball era of baseball statistics, practically every aspect of a player’s performance is now quantifiable. Whereas fielding percentage or on base percentage were once considered “cutting edge” indicators of a player’s true ability, the arrival of the Statcast software system – a series of radar sensors designed to capture the physics underlying each play – has once again changed the way sabermetricians analyzed the game. An outfielder’s path to the ball is now understood in terms of route efficiency and catch probability, while the quality of a batter’s contact is understood through the lens of exit velocity and launch angle. 
+                                  "),
+                                p("Perhaps the most impactful and mathematically rich aspect of Statcast has been its collection of pitch data. For any given pitch, Statcast is able to collect a myriad of data points describing the physics of that pitch, including, but not limited to: horizontal break, vertical break, release velocity, perceived velocity, spin rate, release point, horizontal/vertical/lateral acceleration, x/y coordinates across the plate, etc. 
+                                  "),
+                                p("For our project, we sought to create an app that would allow players, coaches, and fans to evaluate the quality of a single pitch. Although the coding and computation were somewhat hairy, the underlying premise was simple: Given a single pitch (more precisely, the physics of a single pitch), we wanted to know how similar pitches had fared across Major League Baseball. For example, was Casey Lawrence’s 90mph fastball with little horizontal break likely to get throttled, or was it actually a serviceable pitch? If a pitcher added 200 rotations of spin to his curveball, would he improve? These are the questions we wanted our app to probe. 
+                                  "),
+                                p("Prior to any analysis, we first had to get a dataset of pitches thrown in Major League Baseball. Using ", a("Baseball Savant", href="https://baseballsavant.mlb.com/statcast_search")," and its friendly user interface, we downloaded the Statcast data for every (four seam, two seam, cut, and split-fingered) fastball, curveball, slider, and changeup thrown in the regular season in 2017, and assembled one giant data set of such pitches.
+                                  "),
+                                p(em("Note: we elected to exclude knuckleballs, forkballs, screwballs, and eephus pitches from our data set – as far as pitches go, these kinds are very rare, and, would more likely than not introduce outliers into our dataset. So we stuck to the “traditional” repertoire of pitches, assuming that the pitch to be evaluated was “traditional” as well. 
+                                     ")),
+                                p("Then, with our dataset intact, we needed a way of comparing a single new pitch – for example, that new curveball with 200 extra revolutions -- to similar pitches thrown across major league baseball in 2017. In drawing such comparisons, we focused on five variables – to wit, horizontal movement (pfx_x), vertical movement (pfx_z), effective velocity (the velocity as perceived by the batter), release velocity (how fast the pitch actually exited the pitcher’s hand), and spin rate. These variables were chosen to give a sense of the pitch's shape and movement – that is, its general “behavior.”
+                                  "),
+                                p("Our process of finding similar pitches has mild parallels to the logic underlying K-means clustering – that is, we wanted to know more about a certain pitch by finding “nearby” pitches on a plot. More precisely, we first took a pitch and its 5 descriptor variables, and plotted it as a point in 5d space; then we sought to find other pitches nearby in 5d space."), p("While instinct might suggest to use simple Euclidian distance, a 5D minimization of Euclidian distance was actually not appropriate for this kind of multivariate data. After all, Euclidian distance would consider a 10 mph shift in velocity (which is very significant) and a 10 rpm shift in spin rate (which is more or less insignificant) equally – that is, it might not evenly account for variable/scaling differences in our multivariate data. Additionally, our 5d axes might not be 90 degrees apart, further complicating any attempts at Euclidian distance."), p("To avoid such Euclidian issues, we instead used Mahalanobis distance, which uses matrix manipulation to determine a “normalized” distance between points in multivariate space. Matthew Clapham has a terrific primer on", a(" Mahalanobis distance",href="https://www.youtube.com/watch?v=spNpfmWZBmg")," -- he describes its intuition more articulately than we ever could. ",a("Wikipedia",href="https://en.wikipedia.org/wiki/Mahalanobis_distance")," does a decent job too."),
+                                
+                                p("Given our point/pitch in 5d, we then constructed an open ball about that point/pitch with a radius of Mahalanobis distance 1. All 2017 pitches that fell inside this open ball were considered our pool of “similar” pitches.  
+                                  "),
+                                p("From there, we examined the outcomes of the similar pitches within the open ball. Among other things, we explored: the distribution of outcomes (e.g. single, double, ball, strike, etc.) of the similar pitches; how often the similar pitches generated swings and misses; and how likely a similar pitch was to be hit over 100mph. Finally, we built 3 models that would predict estimated wOBA (a commonly used measure of a hitter’s run creation) for the open ball, and used it to assign/predict a wOBA value for the original pitch. This would give us a general sense of the pitch's efficacy. 
+                                  "),
+                                p("For precise detail of our app’s workings and models, click on the “App” and then “App explanation” tab. 
+                                  "), p("Ultimately, while this app only begins to scrape the surface of pitch data modeling, we imagine the general concept could be useful two primary front-office settings. First, a tool like this could help aid player evaluation and scouting -- that is, it can help answer key questions, such as `does this pitcher throw good, unhittable pitches and do we want this pitcher on our team?`. Second, we imagine this kind of tool would also be helpful in evaluating a pitcher's warm up on gameday. Teams could input a pitcher's pregame warm up pitches into the app prior to a game, and get a sense of whether the pitcher is `on their game` that day. Coaches would know what pitches are working for the pitcher and what pitches aren't; game plans could then be structured or restructured accordingly."),p("We hope you enjoy playing around with the app -- may your estimated wOBA values be low!")
+                                ),
+                       tabPanel("Glossary of Terms", titlePanel("Glossary"),
+                                p(strong("Weighed On Base Average (`wOBA`): "),"Based on the idea that all hits are not valued equally.  wOBA weighs the different outcomes of an offensive result based on the result’s average contribution to run scoring (across an entire season).  For instance, both a walk and a single get the hitter to first base, but wOBA accounts for the fact that a single can move runners around the bases as well.  Hence, a walk had an added run expectancy of roughly .69 runs in 2017, while a single had an added run expectancy of .88 runs in 2017. "),
+                                p(strong("Estimated Weighted On Base Average (`Estimated wOBA`): "),"Given a launch angle and launch speed of a batted ball, an estimated wOBA can be calculated.  Certain combinations of speed and angle typically increase run expectancy more than others.  For instance, if a ball is hit hard at a positive 25-degree angle over 100 MPH, then it is likely to result in a greater added run expectancy. Accordingly, estimated wOBA will assign such a hit a higher run expectancy value.",br(),br(), "The goal of estimated wOBA is to remove some of the `luck` element from wOBA. Suppose a batter crushes a pitch, but the outfielder makes a tremendous play to take away a would-be home run. Normal wOBA would assign a run expectancy value closer to 0, since the batter recorded an out. However, estimated wOBA would say, `more often than not, that sort of hit would be a home run. Let’s give the batter almost all of the credit for a home run, even if he was unlucky this time around.`
+"),
+                                p(strong("Launch Angle: "),"Angle, in degrees, that the ball flies off the bat after being hit."),
+                                p(strong("Launch Speed: "), "How fast the ball is moving when it leaves the bat, in mph."),
+                                p(strong("Release Speed: "), "How fast the ball is moving when released from the pitcher's hand, in mph. "),
+                                p(strong("Effective Speed: "), "How fast the pitch feels to the hitter, in mph.  If the pitcher releases the ball a foot closer to the plate, then it will feel faster to the hitter. Furthermore, if the pitch `drops` less, its flight path is shorter, making the pitch seem faster. ",a(" Here's a terrific explanation of effective velocity theory.", href="https://www.sbnation.com/longform/2014/6/18/5818380/effective-velocity-pitching-theory-profile-perry-husband?_ga=2.227353567.354848036.1525028725-1392610852.1525028725")),
+                                p(strong("Release Spin Rate: "), "Revolutions per minute upon release from the pitcher's hand. A ball is generally, though not always, harder to hit if it has an extreme (either low or high) spin rate. "),
+                                p(strong("Pfx_x: "), "The horizontal movement of the pitch, in feet, from release point to the catcher’s mitt."),
+                                p(strong("Pfx_z: "), "The vertical movement of the pitch, in feet, from release point to the catcher’s mitt."),
+                                
+                                p(strong("Pitch Type: "), "The type of pitch thrown by the pitcher (fastball, curveball, slider, change-up, knuckleball, etc.). "),
+                                p(strong("Batter-Handedness: "), "If the batter is lefty of a righty.  Generally, batters do worse against pitchers of the same side; i.e., lefty batters perform worse against lefty pitchers.")
+                                
+                       ),
+                       tabPanel("App", titlePanel("User Input"),
+                                sidebarLayout(
+                                  sidebarPanel(helpText("PitchFX Input"),
+                                               selectInput(inputId="pitcher_throws",
+                                                           label="Select Pitcher Handedness",
+                                                           choices=list("Right-Handed"="R",
+                                                                        "Left-Handed"="L")),
+                                               textInput(inputId="pfx_x",
+                                                         label="Enter PFX_X",
+                                                         value=-.8193),
+                                               textInput(inputId="pfx_z",
+                                                         label="Enter PFX_Z",
+                                                         value=1.3611),
+                                               textInput(inputId="effective_speed",
+                                                         label="Enter Effective Velo",
+                                                         value=95.952),
+                                               textInput(inputId="release_speed",
+                                                         label=" Enter Release Velo",
+                                                         value=97.7),
+                                               textInput(inputId="release_spin_rate",
+                                                         label="Enter Release Spin Rate",
+                                                         value=2381),
+                                               sliderInput(inputId="pick_md", 
+                                                           label="Pick Mahalanobis Distance",
+                                                           min = .05, max = 5,
+                                                           value = 1, step = 0.05),
+                                               checkboxGroupInput(inputId = "batter_hand",
+                                                                  label="Filter by Batter Handedness",
+                                                                  choices=list("Right-Handed"="R",
+                                                                               "Left-Handed"="L"),
+                                                                  selected=c("R", "L")),
+                                               actionButton("go", "Fit Models")
+                                               
+                                  ), 
+                                  mainPanel(tags$style(type="text/css",
+                                                       ".shiny-output-error { visibility: hidden; }",
+                                                       ".shiny-output-error:before { visibility: hidden; }"),
+                                            
+                                            
+                                            
+                                            tabsetPanel(type="tabs",
+                                                        tabPanel("Instructions",
+                                                                 h4("To use the App, enter the following Statcast “measurements” for your pitch to be evaluated:
+                                                                    "),br(),
+                                                                 p(strong("Pitcher-Handedness:"), " Whether or not the pitcher is a righty or lefty.
+                                                                   "),
+                                                                 p(strong("PFX_X:"), " Horizontal movement of the pitch, in feet.
+                                                                   "),
+                                                                 p(strong("PFX_Z:")," Vertical movement of the pitch, in feet.
+                                                                   "),
+                                                                 p(strong("Effective Velocity:"), " Pitch velocity, as “perceived” by the hitter, in mph.", a(" Here's a terrific explanation of effective velocity theory.", href="https://www.sbnation.com/longform/2014/6/18/5818380/effective-velocity-pitching-theory-profile-perry-husband?_ga=2.227353567.354848036.1525028725-1392610852.1525028725")
+                                                                 ),
+                                                                 p(strong("Release Velocity:")," Pitch velocity, in mph, at release point.
+                                                                   "),
+                                                                 p(strong("Release_Spin_Rate:")," Rotations per minute of pitch at release point; this often determines pitches proclivity to break. 
+                                                                   "),
+                                                                 p(strong("Mahalanobis Distance:")," Pick the radius of your open ball, in terms of Mahalanobis distance. A smaller radius selects only the most similar pitches, but results in a smaller data set; a larger radius casts a wider net and may include more dissimilar pitches. We recommend a Mahalanobis distance of 1, which is equivalent to 1 “normalized” standard deviation in 5d space. 
+                                                                   "),
+                                                                 p(strong("Batter Handedness:")," Optional – filter by batter’s handedness, if you desire. This would allow you to examine if a certain pitch has differences across right-handed or left-handed hitters. 
+                                                                   "),br(),
+                                                                 p("Once your single pitch data point has been entered, click through the various tabs to see information about how similar pitches fared across Major League Baseball in 2017.
+                                                                   "),
+                                                                 p("Finally, click on the fit models button to fit a regression tree, a bagged tree, and random forest predictive model (Note: this may take a while). Using the open ball of similar pitches as its test and training data sets, these models forecast “estimated wOBA” or “estimated weighted on-base average” – a statistic used to measure a hitter’s run creation – for that pitch. If the estimated wOBA is higher, this means that, per swing, this pitch was generally “hit harder” and led to more runs. Conversely, if the estimated wOBA is lower, then per swing, batters created fewer runs with the pitch. 
+                                                                   "),
+                                                                 p("You can read in depth on wOBA and estimated wOBA", a("here, ", href = "https://www.fangraphs.com/library/the-beginners-guide-to-deriving-woba/"), a("here, ", href = "https://www.fangraphs.com/library/offense/woba/"), " or ", a("here. ", href =" https://www.fangraphs.com/library/woba-as-a-gateway-statistic/"), "It’s worthy of its own page-long essay.")
+                                                                 
+                                                                 
+                                                                 ),
+                                                        tabPanel("Data Table for Similar Pitches",br(),
+                                                                 p("This is the raw data table for all 'similar' pitches in the open ball with a radius of a Mahalanobis distance of your choosing. Each column indicates an outcome or pitch characteristic, while each row represents a single pitch thrown in 2017."), br(),
+                                                                 DT::dataTableOutput("pitchTable")),
+                                                        tabPanel("Predictive Models",br(),
+                                                                 p("This table offers three predictions -- one by regression tree, one by bagged tree, and one by random forest -- for the estimated wOBA value of a swing against the inputted pitch. Note that the open ball of similar pitches serves as the test/training data set for these models."),br(),p("Click on the `Fit Models` button to fit your model. Be patient, and don't make your Mahalanobis distance too big -- otherwise the app might crash!"), br(),
+                                                                 DT::dataTableOutput("models")),
+                                                        tabPanel("Location Optimization", br(),
+                                                                 p("This graphic depicts the locations of similar pitches that were swung at. If a pitch was hit `hard` (i.e. a launch speed of 95+mph), the pitch location was colored red. If not, it was colored blue. We can use this graphic to make generalizations about where a pitcher should avoid/try to locate a certain pitch."), br(),
+                                                                 plotOutput("locate")),
+                                                        tabPanel("Distribution of Outcomes",br(),
+                                                                 p("This graphic provides a simple breakdown, by outcome, of all swung-on similar pitches. Groundballs and swings/misses are considered good, as they typically result in fewer runs; conversely, flyballs and linedrives are bad, as those are the types of contact that fall for extra-base hits or homeruns."), br(),
+                                                                 plotlyOutput("outcomes")),
+                                                        tabPanel("Contact Profile",br(),
+                                                                 p("This graphic provides a `contact profile` of similar pitches -- that is, the percentage of similar pitches that are hit into play, taken, or swung-on and missed. Generally speaking, if a pitch is good, it will generate high swing and miss rates. After all, a good pitch should be difficult to hit."), br(),
+                                                                 
+                                                                 plotlyOutput("plot2")),
+                                                        tabPanel("Launch Angle v. Launch Speed", br(),
+                                                                 p("This graphic plots the launch angle, launch speed, and estimated wOBA value of all batted balls against the open ball of similar pitches. It aims to show, when a ball is hit against a similar pitch, the characteristics of such hits. Are they hit hard or hit softly -- that is, do they tend to have high or low launch speeds? Furthermore, when similar pitches are hit, are they hit more in the air or more on the ground (low launch angles or high launch angles)? And what combinations of angle and speed result in the highest estimated wOBA? These questions, as answered by the graphic below, will help to determine whether a pitch is flyball or groundball prone, as well as its proclivity for generating soft or hard contact." ),br(),
+                                                                 plotlyOutput("plot4")),
+                                                        tabPanel("Density Plot: Est. wOBA", br(),
+                                                                 p("This graphic depicts the density distribution of estimated wOBA for all swings against similar pitches. If a pitch is good, we should expect to see many estimated wOBA's equal to zero and few above one. This should make sense: if a pitch is tough to hit, most at bats should result in few runs created. "),br(),
+                                                                 plotlyOutput("plot5")),
+                                                        tabPanel("Data Source", h4("Data Acquisition Workflow"),br(), p("We used Baseball Savant's ",a("Statcast Database", href="https://baseballsavant.mlb.com/statcast_search"), "to gather all of the fastballs, sliders, curveballs, and sinkers for the 2017 regular season. However, because Baseball Savant only allows one to download so many pitches at a time, we had to do the download in pieces. Accordingly, our downloading algorithm was effectively broken down into three nested loops, structured as follows:"),
+                                                                 p("-First, we filtered by desired pitch type (e.g. fourseam fastball, changeup, etc."), p("-Second, we filtered by the number of outs when the pitch was thrown (either 0,1, or 2)
+                                                                                                                                                           "), p("-Third, we filtered by timeframe (either April-May, June-July, August-October"), p("Thus, for each type of pitch (of which there were 9 types), we had 9 sub datasets. We bound these together to create a dataset for each pitch type, and then bound the datasets for each pitch type to create our entire data set.")
+                                                                                                                                                           )
+                                                                                                                                                           ))
+                                  
+                                                                                                                                                           )
+                                
+                                                                 )
+                                                                 ))
+
+
+#server
+server<-shinyServer(function(input,output){
+  
+  pitch_data_for_cov<-reactive({
+    Pitches_Wrangled[,1:5]
+  })
+  
+  cov_matrix<-reactive({
+    
+    solve(cov(pitch_data_for_cov(), y=NULL, use="everything"))
+  })
+  
+  pitch_data<-reactive({
+    CovInv<-cov_matrix()
+    Pitches_Wrangled%>%
+      filter(p_throws==input$pitcher_throws)%>%
+      filter(stand==input$batter_hand)%>%
+      mutate(d1=pfx_x-as.numeric(input$pfx_x))%>%
+      mutate(d2=pfx_z-as.numeric(input$pfx_z))%>%
+      mutate(d3=effective_speed-as.numeric(input$effective_speed))%>%
+      mutate(d4=release_speed-as.numeric(input$release_speed))%>%
+      mutate(d5=release_spin_rate-as.numeric(input$release_spin_rate))%>%
+      mutate(p1=d1*CovInv[1]+d2*CovInv[2]+d3*CovInv[3]+d4*CovInv[4]+d5*CovInv[5])%>%
+      mutate(p2=d1*CovInv[6]+d2*CovInv[7]+d3*CovInv[8]+d4*CovInv[9]+d5*CovInv[10])%>%
+      mutate(p3=d1*CovInv[11]+d2*CovInv[12]+d3*CovInv[13]+d4*CovInv[14]+d5*CovInv[15])%>%
+      mutate(p4=d1*CovInv[16]+d2*CovInv[17]+d3*CovInv[18]+d4*CovInv[19]+d5*CovInv[20])%>%
+      mutate(p5=d1*CovInv[21]+d2*CovInv[22]+d3*CovInv[23]+d4*CovInv[24]+d5*CovInv[25])%>%
+      mutate(md2=(d1*p1+d2*p2+d3*p3+d4*p4+d5*p5))%>%
+      mutate(md=(md2)^.5)%>%
+      arrange(md)%>%
+      filter(md<input$pick_md)
+    
+    
+    
+  })
+  swing_data<-reactive({
+    pitch_data()%>%
+      filter(description=="foul"|description=="foul_tip"|description=="hit_into_play"|description=="hit_into_play_no_out"|description=="hit_into_play_score"|description=="swinging_strike"|description=="swinging_strike_blocked")%>%
+      mutate(estimated_woba_using_speedangle=ifelse(is.na(estimated_woba_using_speedangle), 0, estimated_woba_using_speedangle))
+  })
+  
+  pitch_data_vis<-reactive({
+    pitch_data()%>%
+      select(md, player_name, p_throws, stand, pitch_type, description, des, pfx_x, pfx_z, effective_speed, release_speed, release_spin_rate, launch_angle, launch_speed, estimated_woba_using_speedangle)%>%
+      rename(`Mahalanobis Distance`=md, Pitcher=player_name, `Pitcher Handedness`=p_throws, `Batter Handedness`=stand, Result=description, `Play Overview`=des, `Estimated wOBA`=estimated_woba_using_speedangle, `Launch Speed`=launch_speed, `Launch Angle`=launch_angle, `PFX_X (H-Break)`=pfx_x, `PFX_Z (V-Break)`=pfx_z, `Effective Velo`=effective_speed, `Release Velo`=release_speed, `Release Spin Rate`=release_spin_rate, `Pitch Type`=pitch_type)
+  })
+  
+  output$pitchTable<-DT::renderDataTable({
+    DT::datatable(data=pitch_data_vis(), rownames=FALSE)
+  }, server=TRUE)
+  
+  
+  
+  
+  
+  
+  
+  ###############
+  input_dataframe<-reactive({
+    data.frame("pfx_x"=as.numeric(input$pfx_x), "pfx_z"=as.numeric(input$pfx_z), "effective_speed"=as.numeric(input$effective_speed), "release_speed"=as.numeric(input$release_speed), "release_spin_rate"=as.numeric(input$release_spin_rate))
+  })
+  
+  
+  #as it pertains to total swings
+  total_pitches<-reactive({dim(swing_data())[1]})
+  
+  
+  
+  
+  swing_strike<-reactive({
+    dim(pitch_data()%>%
+          filter(description=="swinging_strike"|description=="swinging_strike_blocked")
+    )[1]/total_pitches()
+  })
+  
+  foul<-reactive({
+    dim(pitch_data()%>%
+          filter(description=="foul"|description=="foul_tip")
+    )[1]/total_pitches()
+  })
+  
+  groundball<-reactive({
+    dim(pitch_data()%>%
+          filter(launch_angle<10, description!="foul", description!="foul_tip")
+    )[1]/total_pitches()
+  })    
+  
+  linedrive<-reactive({
+    dim(pitch_data()%>%
+          filter(launch_angle>=10, launch_angle<25, description!="foul", description!="foul_tip")
+    )[1]/total_pitches()
+  }) 
+  
+  flyball<-reactive({
+    dim(pitch_data()%>%
+          filter(launch_angle>=25, launch_angle<=50, description!="foul", description!="foul_tip")
+    )[1]/total_pitches()
+  })
+  
+  popup<-reactive({
+    dim(pitch_data()%>%
+          filter(launch_angle>50, description!="foul", description!="foul_tip")
+    )[1]/total_pitches()
+  })
+  
+  batted_ball_outcomes2<-reactive({
+    swing_data()%>%
+      mutate(Result=ifelse(description=="swinging_strike"|description=="swinging_strike_blocked", "Swinging Strike",
+                           ifelse(description=="foul"|description=="foul_tip", "Foul",
+                                  ifelse(launch_angle<10& description!="foul"& description!="foul_tip", "Groundball",
+                                         ifelse(launch_angle>=10& launch_angle<25& description!="foul"& description!="foul_tip", "Linedrive",
+                                                ifelse(launch_angle>=25& launch_angle<=50& description!="foul"& description!="foul_tip", "Flyball", "Popup"
+                                                       
+                                                )
+                                                
+                                         )
+                                         
+                                  )
+                                  
+                           )
+      ))%>%
+      
+      
+      
+      mutate(Result=as.factor(Result))
+  })
+  
+  
+  
+  batted_ball_outcomes<-reactive({
+    data.frame("Foul"=foul(), "SS"=swing_strike(), "GB"=groundball(), "LD"=linedrive(), "FB"=flyball(), "PU"=popup())%>%
+      gather(Foul, SS, GB, LD, FB, PU, key = "Outcome", value = "Percentage")
+  })
+  
+  output$outcomes<-renderPlotly({
+    req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+    p<-ggplot(data=batted_ball_outcomes2(), mapping=aes(x=Result))+geom_bar(aes(y = (..count..)/sum(..count..)),col="white", fill="blue")+labs(title="Distribution of Outcomes", x="Outcome", y = "Percentage Occurence")
+    ggplotly(p)
+  })
+  
+  output$plot1 <- renderPlotly({
+    req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+    ggplot(data = pitch_data_for_scatter(), 
+           mapping = aes_string(x = "launch_angle", y = "launch_speed")) + geom_point(col = "red", alpha = .8)+
+      ylab("Launch Speed") + xlab("Launch Angle") + labs(title = "Launch Angle versus Launch Speed")
+  })
+  cv_opts<-trainControl(method="repeatedcv", number=10, repeats = 3)
+  grd<-data.frame(.mtry=c(1,2,3,4,5))
+  
+  
+  output$models<-DT::renderDataTable({
+    req(input$go)
+    
+    mod_TR <- train(estimated_woba_using_speedangle~pfx_x+pfx_z+effective_speed+release_speed+release_spin_rate, data=swing_data(), method = "rpart",trControl = cv_opts)
+    RMSE_TR<-min(mod_TR$results$RMSE)
+    Pred_TR<-predict(mod_TR, input_dataframe())
+    
+    mod_TB<-train(estimated_woba_using_speedangle~pfx_x+pfx_z+effective_speed+release_speed+release_spin_rate, data=swing_data(), method="treebag", trControl=cv_opts)
+    RMSE_TB<-min(mod_TB$results$RMSE)
+    Pred_TB<-predict(mod_TB, input_dataframe())
+    
+    mod_RF<-train(estimated_woba_using_speedangle~pfx_x+pfx_z+effective_speed+release_speed+release_spin_rate, data=swing_data(), method="rf", trControl=cv_opts)
+    RMSE_RF<-min(mod_RF$results$RMSE)
+    Pred_RF<-predict(mod_RF, input_dataframe())
+    
+    svm_results<-data.frame("Model"=c("Regression Tree", "Bagged Tree", "Random Forest"), "Prediction"=c(Pred_TR, Pred_TB,Pred_RF), "RMSE"=c(RMSE_TR, RMSE_TB,RMSE_RF))
+    DT::datatable(data=svm_results, rownames=FALSE)
+  }, server=TRUE)
+  
+  
+  
+  
+  
+  
+  
+  cv_opts2 <- trainControl(method = "cv", number = 10)
+  C <- c(.001, .01, 0.1, 1, 2, 10, 20)
+  
+  loc_data<-reactive({
+    pitch_data()%>%
+      filter(!is.na(launch_speed)|description=="swinging_strike"|description=="swinging_strike_blocked")%>%
+      mutate(hh=ifelse(description=="swinging_strike"|description=="swinging_strike_blocked", "n", ifelse(launch_speed>=95, "y", "n")))%>%
+      mutate(hh=as.factor(hh))%>%
+      select(plate_z, plate_x, hh, description)
+  })
+  
+  output$locate<-renderPlot({
+    ggplot(data=loc_data(), aes(x=plate_x, y=plate_z, col=as.factor(hh)))+geom_point(alpha=.5)+ geom_hline(yintercept=3.412472)+ geom_hline(yintercept=1.54651)+ coord_fixed()+geom_vline(xintercept=.708333)+geom_vline(xintercept=-.708333)+ 
+      scale_colour_manual(values=c("blue", "red"), name="Hard Hit?")+labs(title="Pitch Location and Strength of Contact", x = "X Location of Pitch (ft.)", y= "Y Location of Pitch (ft.)")
+    
+    
+  })
+  
+  
+  
+  
+  
+  
+  
+  ############
+  
+  
+  
+  
+  pitch_data_for_scatter<-reactive({
+    pitch_data() %>%
+      filter(description != "missed_bunt") %>%
+      filter(description != "ball") %>%
+      filter(description != "swinging_strike") %>%
+      filter(description != "called_strike") %>%
+      filter(description != "foul_tip") %>%
+      filter(description != "foul_bunt") %>%
+      filter(description != "foul") %>%
+      filter(description != "hit_by_pitch") %>%
+      filter(description != "swinging_strike_blocked") %>%
+      filter(description != "blocked_ball")%>%
+      rename(Desc=des)
+  }) 
+  
+  pitch_data_for_SwingAndMiss<-reactive({
+    pitch_data() %>%
+      filter(description != "missed_bunt") %>%
+      filter(description != "foul_bunt") %>%
+      mutate(outcome = ifelse(description == "foul_tip" | description == "foul" | description == "hit_into_play" | description == "hit_into_play_score" | description == "hit_into_play_no_out", "Contact", ifelse(description == "swinging_strike" | description == "swinging_strike_blocked", "Swing and Miss", ifelse(description == "ball" | description == "blocked_ball" | description == "hit_by_pitch", "Taken Ball", ifelse(description == "called_strike", "Taken Strike", 0)))))
+  })
+  
+  
+  
+  
+  output$plot2 <- renderPlotly({
+    req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+    ggplot(data = pitch_data_for_SwingAndMiss(), 
+           mapping = aes(outcome)) + geom_bar(col = "white", fill = "red")+
+      ylab("Count") + xlab("Outcome") + labs(title = "Contact Profile")
+  })
+  
+  
+  
+  output$plot4 <- renderPlotly({
+    req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+    ggplot(data = swing_data(), 
+           mapping = aes(x = launch_speed, y = launch_angle, col = estimated_woba_using_speedangle)) + geom_point(alpha = .8) + scale_fill_discrete(name = "Estimated wOBA") + scale_color_gradient(low="blue", high="red", name="Estimated wOBA") +
+      ylab("Launch Angle") + xlab("Launch Speed (mph)") + labs(title = "How Launch Angle/Speed Impacts Estimated wOBA")
+    
+  })
+  
+  output$plot5 <- renderPlotly({
+    req(input$pitcher_throws, input$pfx_x, input$pfx_z, input$effective_speed, input$release_spin_rate, input$release_speed, input$pick_md, input$batter_hand)
+    ggplot(data = swing_data(),
+           mapping = aes(estimated_woba_using_speedangle)) +
+      geom_density(col = "red") +
+      ylab("Density") + xlab("Estimated wOBA Value") + labs(title = "Density Plot of Estimated wOBA Values")
+    
+  })
+  
+  
+  
+  
+  #########################################################################################################
+})
+
+
+
+shinyApp(ui=ui, server=server)
+
+
